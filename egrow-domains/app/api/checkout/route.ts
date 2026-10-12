@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { checkAvailability } from "@/lib/namecom";
 import { isValidDomain } from "@/lib/domains";
 import { salePriceEur, toCents } from "@/lib/pricing";
-import { getStripe, siteUrl } from "@/lib/stripe";
+import { createOrder } from "@/lib/paypal";
+import { seal } from "@/lib/secure";
+import { siteUrl } from "@/lib/url";
+import crypto from "node:crypto";
 import { allow, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -76,45 +79,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Το domain δεν είναι πλέον διαθέσιμο." }, { status: 409 });
     }
     const tld = domain.split(".").slice(1).join(".");
-    const priceEur = salePriceEur(r.purchasePrice, tld);
+    const amount = (toCents(salePriceEur(r.purchasePrice, tld)) / 100).toFixed(2);
+    const nonce = crypto.randomUUID();
 
-    const session = await getStripe().checkout.sessions.create({
-      mode: "payment",
-      locale: "el",
-      customer_email: email,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "eur",
-            unit_amount: toCents(priceEur),
-            product_data: {
-              name: `Domain ${domain}`,
-              description: "Καταχώρηση για 1 έτος, με privacy protection",
-            },
-          },
-        },
-      ],
-      metadata: {
-        type: "domain",
-        domain,
-        costUsd: String(r.purchasePrice),
-        c_first: firstName,
-        c_last: lastName,
-        c_company: companyName,
-        c_email: email,
-        c_phone: phone,
-        c_addr: address1,
-        c_city: city,
-        c_state: state,
-        c_zip: zip,
-        c_country: country,
+    // Τα στοιχεία κατόχου ταξιδεύουν κρυπτογραφημένα στο return URL (χωρίς βάση δεδομένων).
+    const s = seal({
+      v: 1,
+      exp: Date.now() + 60 * 60_000,
+      nonce,
+      domain,
+      amount,
+      costUsd: r.purchasePrice,
+      contact: {
+        firstName,
+        lastName,
+        companyName: companyName || undefined,
+        address1,
+        city,
+        state,
+        zip,
+        country,
+        phone,
+        email,
       },
-      success_url: `${siteUrl()}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl()}/?cancelled=1`,
     });
 
-    return NextResponse.json({ url: session.url });
+    const order = await createOrder({
+      amountEur: amount,
+      domain,
+      invoiceId: nonce,
+      returnUrl: `${siteUrl()}/api/paypal/return?s=${s}`,
+      cancelUrl: `${siteUrl()}/?cancelled=1`,
+    });
+
+    return NextResponse.json({ url: order.approveUrl });
   } catch (err) {
     console.error("[checkout]", err);
     return NextResponse.json(

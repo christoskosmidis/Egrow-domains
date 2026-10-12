@@ -207,7 +207,7 @@ export default function DomainSearch({ initialQuery = "" }: { initialQuery?: str
             {paying ? "Μεταφορά στην πληρωμή..." : "Συνέχεια στην πληρωμή"}
           </button>
           <p className="mt-3 text-center text-xs text-muted">
-            Η πληρωμή γίνεται με ασφάλεια μέσω Stripe. Το domain καταχωρείται αμέσως μετά.
+            Η πληρωμή γίνεται με ασφάλεια μέσω PayPal. Το domain καταχωρείται αμέσως μετά.
           </p>
         </form>
       </dialog>

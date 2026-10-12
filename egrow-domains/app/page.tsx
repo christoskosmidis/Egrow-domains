@@ -4,9 +4,16 @@ import { faq, steps } from "@/lib/site";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ cancelled?: string; q?: string }>;
+  searchParams: Promise<{ cancelled?: string; q?: string; error?: string }>;
 }) {
-  const { cancelled, q } = await searchParams;
+  const { cancelled, q, error } = await searchParams;
+  const errors: Record<string, string> = {
+    unavailable: "Το domain δεν είναι πλέον διαθέσιμο ή άλλαξε η τιμή του. Δεν έγινε καμία χρέωση.",
+    payment: "Η πληρωμή δεν ολοκληρώθηκε. Ελέγξτε το PayPal σας ή επικοινωνήστε μαζί μας.",
+    failed: "Η καταχώρηση δεν ολοκληρώθηκε. Αν χρεωθήκατε, η πληρωμή επιστρέφεται αυτόματα. Επικοινωνήστε μαζί μας αν χρειαστεί.",
+    processed: "Η παραγγελία έχει ήδη επεξεργαστεί. Επικοινωνήστε μαζί μας αν χρειάζεστε βοήθεια.",
+    invalid: "Ο σύνδεσμος δεν είναι έγκυρος ή έχει λήξει. Ξεκινήστε ξανά την αναζήτηση.",
+  };
 
   return (
     <>
@@ -21,6 +28,12 @@ export default async function Home({
             Γράψτε ένα όνομα και δείτε αμέσως τι είναι διαθέσιμο και πόσο κοστίζει. Η τιμή περιλαμβάνει ΦΠΑ και
             καταχώρηση για 1 έτος, με privacy protection.
           </p>
+
+          {error && errors[error] && (
+            <p role="alert" className="mt-6 max-w-xl rounded-xl bg-ink-soft px-4 py-3 text-sm font-semibold">
+              {errors[error]}
+            </p>
+          )}
 
           {cancelled && (
             <p role="status" className="mt-6 max-w-xl rounded-xl bg-ink-soft px-4 py-3 text-sm font-semibold">
